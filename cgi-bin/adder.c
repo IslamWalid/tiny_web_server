@@ -26,8 +26,7 @@ int main(void) {
 
     /* Make the response body */
     content[0] = '\0';
-    strcat(content, "Welcome to add.com: ");
-    strcat(content, "The Internet addition portal.\r\n<p>");
+    strcat(content, "Welcome to Tiny adder\r\n<p>");
 
     sprintf(line_buf, "The answer is: %d + %d = %d\r\n<p>", 
             n1, n2, n1 + n2);
