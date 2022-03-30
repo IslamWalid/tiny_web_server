@@ -45,10 +45,13 @@
     ```
 
 **Example using telnet:**
+
 ![picture alt](https://raw.githubusercontent.com/IslamWalid/tiny_web_server/master/screen-shots/telnet_example.png "telnet adder example")
 
 **Example using browser:**
+
 ![picture alt](https://raw.githubusercontent.com/IslamWalid/tiny_web_server/master/screen-shots/browser_example(1).png "browser home page example")
 
 **Another example using browser:**
+
 ![picture alt](https://raw.githubusercontent.com/IslamWalid/tiny_web_server/master/screen-shots/browser_example(2).png "browser adder example")
