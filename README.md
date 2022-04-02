@@ -9,12 +9,9 @@
 ## How does Tiny works?
 - The `main` routine opens a listen port to recieve the connection requests.
 - The `server` function does its job through:
-
-    **(1)** parse the HTTP request.
-
-    **(2)** parse the uri.
-
-    **(3)** serve the content.
+    1) parse the HTTP request.
+    2) parse the uri.
+    3) serve the content.
 
 ## Requirements
 - Linux or any UNIX-like OS.
