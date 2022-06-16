@@ -2,7 +2,7 @@
 
 
 ## Description
-- **Tiny** is a simple, iterative `HTTP/1.0 Web` server that uses `GET` method to serve static and dynamic content.
+- **Tiny** is a simple, multi-threaded `HTTP/1.0 Web` server that uses `GET` method to serve static and dynamic content.
 - It combines many important ideas like process control, Unix I/O, socket interface and HTTP protocol.
 - While it lacks many of real web servers features, it can serve serve both static and dynamic content to a real Web browser.
 

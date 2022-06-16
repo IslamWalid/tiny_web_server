@@ -5,6 +5,7 @@
 
 #include <fcntl.h>
 #include <netdb.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,8 +28,8 @@ typedef struct sockaddr SA;
 
 extern char **environ; /* Defined by libc */
 
-void
-server(int fd);
+void *
+server(void *args);
 
 void
 read_request_hdrs(Sio *sio);
@@ -52,9 +53,11 @@ client_error(int fd, char *cause, char *errnum,
 int
 main(int argc, char **argv) 
 {
-    int listenfd, connfd;
+    int listenfd;
+    int *connfd;
     char hostname[MAX_LINE], port[PORT_LEN];
     socklen_t clientlen;
+    pthread_t tid;
     struct sockaddr_storage clientaddr;
 
     /* Check command line args */
@@ -66,30 +69,36 @@ main(int argc, char **argv)
     listenfd = open_listenfd(argv[1]);
     while (1) {
         clientlen = sizeof(clientaddr);
-        connfd = accept(listenfd, (SA *)&clientaddr, &clientlen); //line:netp:tiny:accept
+        connfd = malloc(sizeof(int));
+        *connfd = accept(listenfd, (SA *)&clientaddr, &clientlen);
         getnameinfo((SA *) &clientaddr, clientlen, hostname, MAX_LINE, 
                 port, PORT_LEN, 0);
         printf("Accepted connection from (%s, %s)\n", hostname, port);
-        server(connfd);                                             //line:netp:tiny:server
-        close(connfd);                                            //line:netp:tiny:close
+        pthread_create(&tid, NULL, server, connfd);
     }
 }
 
 /*
  * server - handle one HTTP request/response transaction
  */
-void server(int fd) 
+void*
+server(void *args) 
 {
-    int is_static;
+    int is_static, fd;
     struct stat sbuf;
     char buf[MAX_LINE], method[METHOD_LEN], uri[MAX_LINE], version[VERSION_LEN];
     char file_name[MAX_LINE], cgiargs[MAX_LINE];
     Sio sio;
 
+    fd = *((int*) args);
+    free(args);
+
     /* Read request line and headers */
     sio_initbuf(&sio, fd);
-    if (!sio_read_line(&sio, buf, MAX_LINE)) 
-        return;
+    if (!sio_read_line(&sio, buf, MAX_LINE)) {
+        close(fd);
+        return NULL;
+    }
 
     printf("%s", buf);
     sscanf(buf, "%s %s %s", method, uri, version);       
@@ -97,7 +106,8 @@ void server(int fd)
     if (strcasecmp(method, "GET")) {                     
         client_error(fd, method, "501", "Not Implemented",
                 "Tiny does not implement this method");
-        return;
+        close(fd);
+        return NULL;
     }                         
 
     read_request_hdrs(&sio);    
@@ -107,14 +117,16 @@ void server(int fd)
     if (stat(file_name, &sbuf) < 0) {                     
         client_error(fd, file_name, "404", "Not found",
                 "Tiny couldn't find this file");
-        return;
+        close(fd);
+        return NULL;
     }                                                    
 
     if (is_static) { /* Serve static content */          
         if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) { 
             client_error(fd, file_name, "403", "Forbidden",
                     "Tiny couldn't read the file");
-            return;
+            close(fd);
+            return NULL;
         }
         serve_static(fd, file_name, sbuf.st_size);       
     }
@@ -122,16 +134,20 @@ void server(int fd)
         if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) { 
             client_error(fd, file_name, "403", "Forbidden",
                     "Tiny couldn't run the CGI program");
-            return;
+            return NULL;
         }
         serve_dynamic(fd, file_name, cgiargs);        
     }
+
+    close(fd);
+    return NULL;
 }
 
 /*
  * read_request_hdrs - read HTTP request headers
  */
-void read_request_hdrs(Sio *sio) 
+void 
+read_request_hdrs(Sio *sio) 
 {
     char buf[MAX_LINE];
 
@@ -148,7 +164,8 @@ void read_request_hdrs(Sio *sio)
  * parse_uri - parse URI into file_name and CGI args
  *             return 0 if dynamic content, 1 if static
  */
-int parse_uri(char *uri, char *file_name, char *cgiargs) 
+int 
+parse_uri(char *uri, char *file_name, char *cgiargs) 
 {
     char *ptr;
 
@@ -177,7 +194,8 @@ int parse_uri(char *uri, char *file_name, char *cgiargs)
 /*
  * serve_static - copy a file back to the client 
  */
-void serve_static(int fd, char *file_name, int file_size) 
+void
+serve_static(int fd, char *file_name, int file_size) 
 {
     int srcfd;
     char *srcp, file_type[MAX_LINE], response_hdrs[MAX_BUF], buf[MAX_BUF];
@@ -210,7 +228,8 @@ void serve_static(int fd, char *file_name, int file_size)
 /*
  * get_file_type - derive file type from file name
  */
-void get_file_type(char *file_name, char *filetype) 
+void 
+get_file_type(char *file_name, char *filetype) 
 {
     if (strstr(file_name, ".html"))
         strcpy(filetype, "text/html");
@@ -227,7 +246,8 @@ void get_file_type(char *file_name, char *filetype)
 /*
  * serve_dynamic - run a CGI program on behalf of the client
  */
-void serve_dynamic(int fd, char *file_name, char *cgiargs) 
+void 
+serve_dynamic(int fd, char *file_name, char *cgiargs) 
 {
     char buf[MAX_LINE], *emptylist[] = { NULL };
 
